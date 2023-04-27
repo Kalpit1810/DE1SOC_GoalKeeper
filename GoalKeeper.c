@@ -63,6 +63,7 @@ void wait(int t);
 
 // global variables
 volatile int *pixel_ctrl_ptr = (int *)0xFF203020;
+volatile int *LEDR_ptr = (int *)LEDR_BASE;
 volatile int *key_ptr = (int *)KEY_BASE;
 volatile int *sw_ptr = (int *)SW_BASE;
 volatile int *timer_ptr = (int *)MPCORE_PRIV_TIMER;
@@ -117,16 +118,30 @@ int main(void)
     {
         // setting speed of the ball
         speed = *sw_ptr;
-        speed += 5;
-        if (speed > 10)
-            speed = 10;
+        speed += 2;
+        if (speed > 6)
+            speed = 6;
 
         // getting the movements of the savers
+        saver_left_down = saver_left_up = saver_right_down = saver_right_up = 0;
         key = *key_ptr;
-        saver_right_up = key & 1;   // key 1
-        saver_right_down = key & 2; // key 2
-        saver_left_up = key & 4;    // key 3
-        saver_left_down = key & 8;  // key 4
+        if (key == 0b0001)
+        {
+            saver_right_up = 1;
+        } // key 1
+        if (key == 0b0010)
+        {
+            saver_right_down = 1;
+        } // key 2
+        if (key == 0b0100)
+        {
+            saver_left_up = 1;
+        } // key 1
+        if (key == 0b1000)
+        {
+            saver_left_down = 1;
+        } // key 4
+        *LEDR_ptr = (saver_left_down << 3) + (saver_left_up << 2) + (saver_right_down << 1) + saver_right_up;
         while (key)
         {
             key = *key_ptr;
@@ -156,8 +171,8 @@ int main(void)
         // code for updating the locations of savers
         prev_saver_left = saver_left_y;
         prev_saver_right = saver_right_y;
-        saver_left_y += saver_left_up * 20 - saver_left_down * 20;
-        saver_right_y += saver_right_up * 20 - saver_right_down * 20;
+        saver_left_y += (saver_left_up - saver_left_down) * 20;
+        saver_right_y += (saver_right_up - saver_right_down) * 20;
 
         if (saver_left_y < 0)
             saver_left_y = 0;
@@ -349,10 +364,10 @@ void draw_saver(int saver_left_y, int saver_right_y, short int colour)
 void saver_hit(int saver_left_y, int saver_right_y, int *ball_x, int *ball_y, int *dx, int *dy)
 {
     // left daver hit
-    if (max(0, min(*ball_x + BOX_LEN, saver_left_x + SAVER_WIDTH) - max(*ball_x, saver_left_x)) && max(0, min(*ball_y + BOX_LEN, saver_left_y + SAVER_HEIGHT) - max(*ball_y, saver_left_y)))
+    if (max(0, min(*ball_x + BOX_LEN, saver_left_x + SAVER_WIDTH - 1) - max(*ball_x, saver_left_x)) && max(0, min(*ball_y + BOX_LEN, saver_left_y + SAVER_HEIGHT - 1) - max(*ball_y, saver_left_y)))
     {
         if (*dx > 0)
-            *ball_x = saver_left_x - 1;
+            *ball_x -= BOX_LEN;
         else
             *ball_x = (saver_left_x + SAVER_WIDTH) + 1;
 
@@ -360,12 +375,12 @@ void saver_hit(int saver_left_y, int saver_right_y, int *ball_x, int *ball_y, in
     }
 
     // right saver hit
-    if (max(0, min(*ball_x + BOX_LEN, saver_right_x + SAVER_WIDTH) - max(*ball_x, saver_right_x)) && max(0, min(*ball_y + BOX_LEN, saver_right_y + SAVER_HEIGHT) - max(*ball_y, saver_right_y)))
+    if (max(0, min(*ball_x + BOX_LEN, saver_right_x + SAVER_WIDTH - 1) - max(*ball_x, saver_right_x)) && max(0, min(*ball_y + BOX_LEN, saver_right_y + SAVER_HEIGHT - 1) - max(*ball_y, saver_right_y)))
     {
-        if (*dx < 0)
-            *ball_x = (saver_right_x + SAVER_WIDTH) + 1;
+        if (*dx > 0)
+            *ball_x -= BOX_LEN;
         else
-            *ball_x = saver_right_x - 1;
+            *ball_x = (saver_right_x + SAVER_WIDTH) + 1;
 
         (*dx) *= -1;
     }
@@ -397,16 +412,16 @@ void display_score()
 bool goal_hit(int ball_x, int ball_y)
 {
     // left goal hit
-    if (max(0, min(ball_x + BOX_LEN, 25) - max(ball_x, 0)) && max(0, min(ball_y + BOX_LEN, 155) - max(ball_y, 85)))
+    if (max(0, min(ball_x + BOX_LEN, 29 - BOX_LEN) - max(ball_x, 0 - BOX_LEN)) && max(0, min(ball_y + BOX_LEN, 158 - BOX_LEN) - max(ball_y, 81 + BOX_LEN)))
     {
-        ++score_left;
+        ++score_right;
         return true;
     }
 
     // right goal hit
-    if (max(0, min(ball_x + BOX_LEN, 319) - max(ball_x, 295)) && max(0, min(ball_y + BOX_LEN, 155) - max(ball_y, 85)))
+    if (max(0, min(ball_x + BOX_LEN, 319 - BOX_LEN) - max(ball_x, 291 + BOX_LEN)) && max(0, min(ball_y + BOX_LEN, 158 - BOX_LEN) - max(ball_y, 81 + BOX_LEN)))
     {
-        ++score_right;
+        ++score_left;
         return true;
     }
 
